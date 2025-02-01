@@ -57,33 +57,21 @@ app.post("/template", async(req: Request, res: Response): Promise<any> => {
     }
 });
 
-// app.post("/chat", async(req: Request, res: Response): Promise<any> => { 
-//     try {
-
-// async function main() {
-//     const systemPrompt = getSystemPrompt();
-//     const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
-//     let type = await getTypeOfProject();
-//     type = type?.trim() ?? null;
-
-//     if (type === "null") {
-//         const result = await model.generateContent(fullPrompt);
-//         console.log(result.response.text());
-//         return;
-//     }
-    
-//     const boilerPlate = type === 'nextjs' ? nextJsBoilerPlate : type === "node" ? nodeBoilerPlate : reactBoilerPlate;
-//     const finalPrompt = type === "node" ? `${systemPrompt}\n\n${boilerPlate}\n\n${userPrompt}` : `${systemPrompt}\n\n${boilerPlate}\n\n${cleanUIPrompt}\n\n${userPrompt}`
-
-//     const result = await model.generateContentStream(finalPrompt); 
-//     for await (const chunk of result.stream) {
-//         const chunkText = chunk.text();
-//         console.log(chunkText);
-//     }
-// }
-
-// main();
-
+app.post("/chat", async(req: Request, res: Response): Promise<any> => { 
+    try {
+        let messages = req.body.messages;
+        messages = getSystemPrompt() + "\n\n" + messages;
+        const result = await model.generateContentStream(messages); 
+        res.setHeader('Content-Type', 'text/plain');
+        for await (const chunk of result.stream) {
+            res.write(chunk.text()); 
+        }
+        res.end();
+    } catch (error) {
+        console.error("Error in /chat route:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+});
 
 app.listen(3000, () => {
     console.log("Server is running on port 3000");

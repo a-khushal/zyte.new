@@ -4,41 +4,87 @@ import {GoogleGenerativeAI} from "@google/generative-ai";
 import { getSystemPrompt } from "./utils/prompt/prompt";
 import { nextJsBoilerPlate } from "./utils/boilerPlate/nextjs";
 import { reactBoilerPlate } from "./utils/boilerPlate/react";
-import { UserPrompt } from "./utils/prompt/userPrompt";
+import { nodeBoilerPlate } from "./utils/boilerPlate/nodejs";
 import { cleanUIPrompt } from "./utils/prompt/cleanUIPrompt";
+import express, { Response, Request } from "express";
+
+const app = express();
+app.use(express.json());
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-const userPrompt = "create a todo app";
-
-async function getTypeOfProject(): Promise<string | null> {
-    const projectTypePrompt = "Determine the project type based on the user prompt inside the <UserPrompt></UserPrompt> tags. Return `react` or `nextjs` if explicitly mentioned; default to `react` if unspecified. If neither applies, return null."; 
+async function getTypeOfProject(userPrompt: string): Promise<string | null> {
+    const projectTypePrompt = "Determine the project type based on the user prompt inside the <UserPrompt></UserPrompt> tags. Return `react` or `nextjs` or `node`(node is for nodejs backend applications) if explicitly mentioned; default to `react` if unspecified. If neither applies, return null."; 
     const prompt = `${projectTypePrompt}\t\t<UserPrompt>${userPrompt}</UserPrompt>`;
     const result = await model.generateContent(prompt);
     return result.response.text();
 }
 
-async function main() {
-    const systemPrompt = getSystemPrompt();
-    const fullPrompt = `${systemPrompt}\n\n${UserPrompt(userPrompt)}`;
-    let type = await getTypeOfProject();
-    type = type?.trim() ?? null;
+app.post("/template", async(req: Request, res: Response): Promise<any> => { 
+    try {
+        const userPrompt = req.body.userPrompt;
+        let projectType = await getTypeOfProject(userPrompt);
+        projectType = projectType?.trim() ?? null;
 
-    if (type === "null") {
-        const result = await model.generateContent(fullPrompt);
-        console.log(result.response.text());
-        return;
+        if (!projectType || !["node", "react", "nextjs"].includes(projectType)) {
+            return res.status(400).send("Invalid project type");
+        }
+
+        if (projectType === "nextjs") {
+            return res.status(200).json({ 
+                prompts: [cleanUIPrompt, `Project Files:\n\nThe following is a list of all project files and their complete contents that are currently visible and accessible to you.\n\n.${nextJsBoilerPlate}\n\nHere is a list of files that exist on the file system but are not being shown to you:\n\n  - .gitignore\n  - package-lock.json\n`],
+                boilerPlate: nextJsBoilerPlate 
+            });
+        }
+
+        if (projectType === "react") {
+            return res.status(200).json({ 
+                prompts: [cleanUIPrompt, `Project Files:\n\nThe following is a list of all project files and their complete contents that are currently visible and accessible to you.\n\n.${reactBoilerPlate}\n\nHere is a list of files that exist on the file system but are not being shown to you:\n\n  - .gitignore\n  - package-lock.json\n`],
+                boilerPlate: reactBoilerPlate 
+            });
+        }
+
+        if (projectType === "node") {
+            return res.status(200).json({ 
+                prompts: [`Project Files:\n\nThe following is a list of all project files and their complete contents that are currently visible and accessible to you.\n\n.${nodeBoilerPlate}\n\nHere is a list of files that exist on the file system but are not being shown to you:\n\n  - .gitignore\n  - package-lock.json\n.`],
+                boilerPlate: nodeBoilerPlate 
+            });
+        }
+    } catch (error) {
+        console.error("Error in /template route:", error);
+        return res.status(500).json({ message: "Internal server error" });
     }
+});
+
+// app.post("/chat", async(req: Request, res: Response): Promise<any> => { 
+//     try {
+
+// async function main() {
+//     const systemPrompt = getSystemPrompt();
+//     const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
+//     let type = await getTypeOfProject();
+//     type = type?.trim() ?? null;
+
+//     if (type === "null") {
+//         const result = await model.generateContent(fullPrompt);
+//         console.log(result.response.text());
+//         return;
+//     }
     
-    const boilerPlate = type === 'nextjs' ? nextJsBoilerPlate : reactBoilerPlate;
-    const fullPrompt2 = `${systemPrompt}\n\n${cleanUIPrompt}\n\n${UserPrompt(userPrompt)}`;
+//     const boilerPlate = type === 'nextjs' ? nextJsBoilerPlate : type === "node" ? nodeBoilerPlate : reactBoilerPlate;
+//     const finalPrompt = type === "node" ? `${systemPrompt}\n\n${boilerPlate}\n\n${userPrompt}` : `${systemPrompt}\n\n${boilerPlate}\n\n${cleanUIPrompt}\n\n${userPrompt}`
 
-    const result = await model.generateContentStream(fullPrompt2); 
-    for await (const chunk of result.stream) {
-        const chunkText = chunk.text();
-        console.log(chunkText);
-    }
-}
+//     const result = await model.generateContentStream(finalPrompt); 
+//     for await (const chunk of result.stream) {
+//         const chunkText = chunk.text();
+//         console.log(chunkText);
+//     }
+// }
 
-main();
+// main();
+
+
+app.listen(3000, () => {
+    console.log("Server is running on port 3000");
+});

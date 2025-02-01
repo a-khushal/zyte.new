@@ -1,1 +1,1 @@
-{"root":["./src/index.ts"],"version":"5.7.3"}
+{"root":["./src/index.ts","./src/utils/constants.ts","./src/utils/markdown.ts","./src/utils/stripIndent.ts","./src/utils/boilerPlate/nextjs.ts","./src/utils/boilerPlate/react.ts","./src/utils/prompt/cleanUIPrompt.ts","./src/utils/prompt/prompt.ts","./src/utils/prompt/userPrompt.ts"],"version":"5.7.3"}
